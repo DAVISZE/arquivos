@@ -45,8 +45,17 @@ padding:0;
 }
 
 li{
-padding:6px;
+padding:8px;
 border-bottom:1px solid #333;
+display:flex;
+justify-content:center;
+align-items:center;
+gap:10px;
+}
+
+a{
+color:#00ff9c;
+text-decoration:none;
 }
 
 </style>
@@ -106,7 +115,7 @@ border-bottom:1px solid #333;
 
 const SENHA="101205"
 
-const URL_SCRIPT="https://script.google.com/macros/s/AKfycbwL-rRoqvxbgUUa8vG-F0zaaSq9LbIpt0q8VcnIspgS67Huw13G3LqW-cOWLTOPG310/exec"
+const URL_SCRIPT="https://script.google.com/macros/s/AKfycbwZhTKZux3yAR2UhLvlFtq_o40puVdmpz6XlXj22EIXyNytWb2Ixuh5v-Q9_UqWTZFs/exec"
 
 
 function entrar(){
@@ -186,10 +195,43 @@ fetch(URL_SCRIPT+"?listar=1")
 const ul=document.getElementById("lista")
 ul.innerHTML=""
 
-lista.forEach(nome=>{
+lista.forEach(arq=>{
 
 const li=document.createElement("li")
-li.textContent=nome
+
+const link=document.createElement("a")
+link.href=arq.url
+link.textContent=arq.nome
+link.target="_blank"
+
+const tamanho=(arq.tamanho/1024).toFixed(1)+" KB"
+
+const info=document.createElement("span")
+info.textContent="("+tamanho+")"
+
+const del=document.createElement("button")
+del.textContent="🗑"
+
+del.onclick=function(){
+
+fetch(URL_SCRIPT,{
+method:"POST",
+body:new URLSearchParams({
+senha:SENHA,
+deletar:arq.id
+})
+})
+.then(r=>r.text())
+.then(()=>{
+listar()
+})
+
+}
+
+li.appendChild(link)
+li.appendChild(info)
+li.appendChild(del)
+
 ul.appendChild(li)
 
 })
