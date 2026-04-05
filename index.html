@@ -14,7 +14,7 @@ text-align:center;
 margin-top:60px;
 }
 
-input,button,select{
+input,button{
 background:#111;
 border:1px solid #00ff9c;
 color:#00ff9c;
@@ -58,6 +58,12 @@ color:#00ff9c;
 text-decoration:none;
 }
 
+.pasta{
+color:#00ffd0;
+font-weight:bold;
+cursor:pointer;
+}
+
 </style>
 
 </head>
@@ -75,7 +81,6 @@ text-decoration:none;
 
 </div>
 
-
 <div id="painel">
 
 <h2>PAINEL</h2>
@@ -85,7 +90,6 @@ text-decoration:none;
 <button onclick="abrir('arquivos')">ARQUIVOS</button>
 </div>
 
-
 <div id="upload" class="aba">
 
 <h3>Enviar arquivo</h3>
@@ -93,24 +97,27 @@ text-decoration:none;
 <input type="file" id="arquivo">
 <br><br>
 
-<select id="pastaSelect">
-<option value="">Pasta mãe</option>
-</select>
-
-<button onclick="criarPasta()">+ Nova pasta</button>
+<select id="destino"></select>
 
 <br><br>
 
 <button onclick="enviar()">ENVIAR</button>
 
+<br><br>
+
+<input type="text" id="novaPasta" placeholder="nome da pasta">
+
+<button onclick="criarPasta()">CRIAR PASTA</button>
+
 <p id="status"></p>
 
 </div>
 
-
 <div id="arquivos" class="aba">
 
-<h3>Arquivos</h3>
+<h3 id="titulo">Arquivos</h3>
+
+<button onclick="voltar()">⬅ voltar</button>
 
 <button onclick="listar()">ATUALIZAR</button>
 
@@ -126,6 +133,7 @@ const SENHA="101205"
 
 const URL_SCRIPT="https://script.google.com/macros/s/AKfycbyECBICYukUfNvc21rjrK8HcNQh7Hg3tImMSY1zpNuD2wxQwgYrFCS2kvilbCY2UkE-/exec"
 
+let pastaAtual=null
 
 function entrar(){
 
@@ -137,6 +145,7 @@ document.getElementById("login").style.display="none"
 document.getElementById("painel").style.display="block"
 
 abrir("upload")
+
 carregarPastas()
 
 }else{
@@ -147,8 +156,6 @@ document.getElementById("erro").innerText="senha incorreta"
 
 }
 
-
-
 function abrir(nome){
 
 document.querySelectorAll(".aba").forEach(a=>a.style.display="none")
@@ -157,44 +164,19 @@ document.getElementById(nome).style.display="block"
 
 }
 
-
-
-function criarPasta(){
-
-const nome=prompt("Nome da pasta")
-
-if(!nome)return
-
-fetch(URL_SCRIPT,{
-method:"POST",
-body:new URLSearchParams({
-senha:SENHA,
-criarPasta:nome
-})
-})
-.then(r=>r.text())
-.then(()=>{
-carregarPastas()
-})
-
-}
-
-
-
 function carregarPastas(){
 
 fetch(URL_SCRIPT+"?pastas=1")
 .then(r=>r.json())
 .then(lista=>{
 
-const select=document.getElementById("pastaSelect")
+const select=document.getElementById("destino")
 
-select.innerHTML='<option value="">Pasta mãe</option>'
+select.innerHTML="<option value=''>PASTA RAIZ</option>"
 
 lista.forEach(p=>{
 
 const op=document.createElement("option")
-
 op.value=p.id
 op.textContent=p.nome
 
@@ -206,18 +188,36 @@ select.appendChild(op)
 
 }
 
+function criarPasta(){
 
+const nome=document.getElementById("novaPasta").value
+
+fetch(URL_SCRIPT,{
+method:"POST",
+body:new URLSearchParams({
+senha:SENHA,
+criarPasta:nome
+})
+})
+.then(r=>r.text())
+.then(t=>{
+document.getElementById("status").innerText=t
+carregarPastas()
+listar()
+})
+
+}
 
 function enviar(){
 
 const file=document.getElementById("arquivo").files[0]
 
+const pasta=document.getElementById("destino").value
+
 if(!file){
 alert("escolha um arquivo")
 return
 }
-
-const pasta=document.getElementById("pastaSelect").value
 
 const reader=new FileReader()
 
@@ -246,11 +246,15 @@ reader.readAsDataURL(file)
 
 }
 
-
-
 function listar(){
 
-fetch(URL_SCRIPT+"?listar=1")
+let url=URL_SCRIPT+"?listar=1"
+
+if(pastaAtual){
+url+="&pasta="+pastaAtual
+}
+
+fetch(url)
 .then(r=>r.json())
 .then(lista=>{
 
@@ -261,9 +265,35 @@ lista.forEach(arq=>{
 
 const li=document.createElement("li")
 
-if(arq.tipo=="pasta"){
+if(arq.tipo==="pasta"){
 
-li.textContent="📁 "+arq.nome
+const pasta=document.createElement("span")
+pasta.textContent="📁 "+arq.nome
+pasta.className="pasta"
+
+pasta.onclick=function(){
+pastaAtual=arq.id
+listar()
+}
+
+const del=document.createElement("button")
+del.textContent="🗑"
+
+del.onclick=function(){
+
+fetch(URL_SCRIPT,{
+method:"POST",
+body:new URLSearchParams({
+senha:SENHA,
+deletarPasta:arq.id
+})
+})
+.then(()=>listar())
+
+}
+
+li.appendChild(pasta)
+li.appendChild(del)
 
 }else{
 
@@ -277,8 +307,25 @@ const tamanho=(arq.tamanho/1024).toFixed(1)+" KB"
 const info=document.createElement("span")
 info.textContent="("+tamanho+")"
 
+const del=document.createElement("button")
+del.textContent="🗑"
+
+del.onclick=function(){
+
+fetch(URL_SCRIPT,{
+method:"POST",
+body:new URLSearchParams({
+senha:SENHA,
+deletar:arq.id
+})
+})
+.then(()=>listar())
+
+}
+
 li.appendChild(link)
 li.appendChild(info)
+li.appendChild(del)
 
 }
 
@@ -287,6 +334,13 @@ ul.appendChild(li)
 })
 
 })
+
+}
+
+function voltar(){
+
+pastaAtual=null
+listar()
 
 }
 
