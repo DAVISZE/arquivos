@@ -14,7 +14,7 @@ text-align:center;
 margin-top:60px;
 }
 
-input,button{
+input,button,select{
 background:#111;
 border:1px solid #00ff9c;
 color:#00ff9c;
@@ -92,6 +92,15 @@ text-decoration:none;
 
 <input type="file" id="arquivo">
 <br><br>
+
+<select id="pastaSelect">
+<option value="">Pasta mãe</option>
+</select>
+
+<button onclick="criarPasta()">+ Nova pasta</button>
+
+<br><br>
+
 <button onclick="enviar()">ENVIAR</button>
 
 <p id="status"></p>
@@ -115,7 +124,7 @@ text-decoration:none;
 
 const SENHA="101205"
 
-const URL_SCRIPT="https://script.google.com/macros/s/AKfycbwZhTKZux3yAR2UhLvlFtq_o40puVdmpz6XlXj22EIXyNytWb2Ixuh5v-Q9_UqWTZFs/exec"
+const URL_SCRIPT="https://script.google.com/macros/s/AKfycbyECBICYukUfNvc21rjrK8HcNQh7Hg3tImMSY1zpNuD2wxQwgYrFCS2kvilbCY2UkE-/exec"
 
 
 function entrar(){
@@ -128,6 +137,7 @@ document.getElementById("login").style.display="none"
 document.getElementById("painel").style.display="block"
 
 abrir("upload")
+carregarPastas()
 
 }else{
 
@@ -149,6 +159,55 @@ document.getElementById(nome).style.display="block"
 
 
 
+function criarPasta(){
+
+const nome=prompt("Nome da pasta")
+
+if(!nome)return
+
+fetch(URL_SCRIPT,{
+method:"POST",
+body:new URLSearchParams({
+senha:SENHA,
+criarPasta:nome
+})
+})
+.then(r=>r.text())
+.then(()=>{
+carregarPastas()
+})
+
+}
+
+
+
+function carregarPastas(){
+
+fetch(URL_SCRIPT+"?pastas=1")
+.then(r=>r.json())
+.then(lista=>{
+
+const select=document.getElementById("pastaSelect")
+
+select.innerHTML='<option value="">Pasta mãe</option>'
+
+lista.forEach(p=>{
+
+const op=document.createElement("option")
+
+op.value=p.id
+op.textContent=p.nome
+
+select.appendChild(op)
+
+})
+
+})
+
+}
+
+
+
 function enviar(){
 
 const file=document.getElementById("arquivo").files[0]
@@ -157,6 +216,8 @@ if(!file){
 alert("escolha um arquivo")
 return
 }
+
+const pasta=document.getElementById("pastaSelect").value
 
 const reader=new FileReader()
 
@@ -170,7 +231,8 @@ body:new URLSearchParams({
 senha:SENHA,
 nome:file.name,
 tipo:file.type,
-file:base64
+file:base64,
+pasta:pasta
 })
 })
 .then(r=>r.text())
@@ -199,6 +261,12 @@ lista.forEach(arq=>{
 
 const li=document.createElement("li")
 
+if(arq.tipo=="pasta"){
+
+li.textContent="📁 "+arq.nome
+
+}else{
+
 const link=document.createElement("a")
 link.href=arq.url
 link.textContent=arq.nome
@@ -209,28 +277,10 @@ const tamanho=(arq.tamanho/1024).toFixed(1)+" KB"
 const info=document.createElement("span")
 info.textContent="("+tamanho+")"
 
-const del=document.createElement("button")
-del.textContent="🗑"
-
-del.onclick=function(){
-
-fetch(URL_SCRIPT,{
-method:"POST",
-body:new URLSearchParams({
-senha:SENHA,
-deletar:arq.id
-})
-})
-.then(r=>r.text())
-.then(()=>{
-listar()
-})
-
-}
-
 li.appendChild(link)
 li.appendChild(info)
-li.appendChild(del)
+
+}
 
 ul.appendChild(li)
 
